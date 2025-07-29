@@ -16,8 +16,11 @@ kubectl installed for managing the cluster.
 sudo chmod +x ./kubectl
 sudo mv kubectl /usr/local/bin
 kubectl version 
+5.az provider register --namespace Microsoft.ContainerService
+az provider register --namespace Microsoft.Monitor
 
-5. az aks get-credentials --resource-group aks-rg --name myAKSCluster
+
+6. az aks get-credentials --resource-group aks-rg --name myAKSCluster
 
 venu [ ~ ]$ kubectl get nodes
 NAME                                STATUS   ROLES    AGE    VERSION
