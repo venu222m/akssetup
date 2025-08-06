@@ -1,0 +1,124 @@
+
+
+ArgoCD Setup on Azure AKS – Step-by-Step
+🔧 Pre-requisites:
+Azure CLI installed (az)
+
+kubectl configured
+
+AKS cluster already provisioned
+
+Helm installed
+
+GitHub repo with Kubernetes manifests (for ArgoCD to deploy)
+
+🧩 Step 1: Login to Azure and Set Context
+bash
+Copy
+Edit
+az login
+az account set --subscription "<your-subscription-id>"
+
+# Get AKS credentials
+az aks get-credentials --resource-group <your-rg> --name <your-aks-cluster-name>
+🧩 Step 2: Create a Namespace for ArgoCD
+bash
+Copy
+Edit
+kubectl create namespace argocd
+🧩 Step 3: Install ArgoCD using YAML (Official)
+bash
+Copy
+Edit
+kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+💡 This installs the latest stable version of ArgoCD in the argocd namespace.
+
+🧩 Step 4: Expose ArgoCD UI (Option 1: Port-forward for Local Use)
+bash
+Copy
+Edit
+kubectl port-forward svc/argocd-server -n argocd 8080:443
+Open: http://localhost:8080
+
+🧩 Step 5: Get the ArgoCD Admin Password
+bash
+Copy
+Edit
+kubectl get secret argocd-initial-admin-secret -n argocd -o jsonpath="{.data.password}" | base64 -d
+Username: admin
+Password: (output from above command)
+
+🧩 Step 6: Login to ArgoCD CLI (Optional)
+bash
+Copy
+Edit
+argocd login localhost:8080 --username admin --password <password> --insecure
+🧩 Step 7: Connect ArgoCD to a GitHub Repository
+bash
+Copy
+Edit
+argocd repo add https://github.com/<your-username>/<your-repo> --username <git-username> --password <git-password-or-token>
+Alternatively, you can configure the repo in the UI under Settings → Repositories
+
+🧩 Step 8: Create an ArgoCD Application (via CLI or YAML)
+👉 Option A: Apply via YAML
+yaml
+Copy
+Edit
+# app.yaml
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: demo-app
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: 'https://github.com/<your-username>/<your-repo>'
+    targetRevision: HEAD
+    path: k8s-manifests
+  destination:
+    server: 'https://kubernetes.default.svc'
+    namespace: default
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+bash
+Copy
+Edit
+kubectl apply -f app.yaml
+👉 Option B: Create via CLI
+bash
+Copy
+Edit
+argocd app create demo-app \
+  --repo https://github.com/<your-username>/<your-repo> \
+  --path k8s-manifests \
+  --dest-server https://kubernetes.default.svc \
+  --dest-namespace default \
+  --sync-policy automated
+🧩 Step 9: Sync the Application
+bash
+Copy
+Edit
+argocd app sync demo-app
+Or use the UI to Sync Now.
+
+🧩 Step 10: Optional – Expose ArgoCD with Ingress or LoadBalancer (Production Use)
+Update argocd-server service:
+
+bash
+Copy
+Edit
+kubectl patch svc argocd-server -n argocd -p '{"spec": {"type": "LoadBalancer"}}'
+Get External IP:
+
+bash
+Copy
+Edit
+kubectl get svc argocd-server -n argocd
+Now access ArgoCD via:
+https://<EXTERNAL-IP>
+
+
