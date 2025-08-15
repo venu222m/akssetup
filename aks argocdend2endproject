@@ -90,6 +90,11 @@ bash
 Copy
 Edit
 argocd login localhost:8080 --username admin --password <password> --insecure
+🧩 Step 7: Connect ArgoCD login
+https://4.155.111.175:32541/ incognito mode unsecure 
+admin 
+pwd
+
 🧩 Step 7: Connect ArgoCD to a GitHub Repository
 bash
 Copy
@@ -142,20 +147,6 @@ Edit
 argocd app sync demo-app
 Or use the UI to Sync Now.
 
-🧩 Step 10: Optional – Expose ArgoCD with Ingress or LoadBalancer (Production Use)
-Update argocd-server service:
 
-bash
-Copy
-Edit
-kubectl patch svc argocd-server -n argocd -p '{"spec": {"type": "LoadBalancer"}}'
-Get External IP:
-
-bash
-Copy
-Edit
-kubectl get svc argocd-server -n argocd
-Now access ArgoCD via:
-https://<EXTERNAL-IP>
 
 
