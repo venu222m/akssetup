@@ -1,3 +1,20 @@
+1.EKS SETUP
+aks setupss; manuvally
+select rg
+region west us 2
+cluster name 
+agent pool recommnand agent defauls
+edit min1 max2 node pool range
+edit 50pod per node
+edit public ip of node enable
+2. azure cli connect aks cluster
+venu [ ~ ]$ az aks get-credentials --resource-group MyResourceGroup --name azuredevops
+Merged "azuredevops" as current context in /home/venu/.kube/config
+
+venu [ ~ ]$ kubectl get nodes
+NAME                                STATUS   ROLES    AGE     VERSION
+aks-agentpool-38600080-vmss000000   Ready    <none>   15m     v1.32.6
+aks-np2-51532181-vmss000000         Ready    <none>   5m39s   v1.32.6
 
 
 ArgoCD Setup on Azure AKS – Step-by-Step
@@ -22,23 +39,43 @@ az account set --subscription "<your-subscription-id>"
 # Get AKS credentials
 az aks get-credentials --resource-group <your-rg> --name <your-aks-cluster-name>
 🧩 Step 2: Create a Namespace for ArgoCD
-bash
-Copy
-Edit
 kubectl create namespace argocd
-🧩 Step 3: Install ArgoCD using YAML (Official)
-bash
-Copy
-Edit
 kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
 💡 This installs the latest stable version of ArgoCD in the argocd namespace.
+venu [ ~ ]$ kubectl get pods -n argocd 
+NAME                                                READY   STATUS    RESTARTS   AGE
+argocd-application-controller-0                     1/1     Running   0          2m11s
+argocd-applicationset-controller-6ff6f74bc9-hlrfn   1/1     Running   0          2m15s
+argocd-dex-server-558dc4bd7b-jkjrp                  1/1     Running   0          2m14s
+argocd-notifications-controller-9977b5bd6-68bx9     1/1     Running   0          2m14s
+argocd-redis-6594484976-45h56                       1/1     Running   0          2m13s
+argocd-repo-server-845d4f5c49-xsw9h                 1/1     Running   0          2m12s
+argocd-server-59d75f4c95-xgddg                      1/1     Running   0          2m11s
 
-🧩 Step 4: Expose ArgoCD UI (Option 1: Port-forward for Local Use)
-bash
-Copy
-Edit
-kubectl port-forward svc/argocd-server -n argocd 8080:443
-Open: http://localhost:8080
+🧩 Step 4: Expose ArgoCD UI (Option 1: Port-forward for nodeport)
+venu [ ~ ]$ kubectl get svc -n argocd
+NAME                                      TYPE        CLUSTER-IP     EXTERNAL-IP   PORT(S)                      AGE
+argocd-applicationset-controller          ClusterIP   10.0.120.123   <none>        7000/TCP,8080/TCP            5m29s
+argocd-dex-server                         ClusterIP   10.0.87.159    <none>        5556/TCP,5557/TCP,5558/TCP   5m28s
+argocd-metrics                            ClusterIP   10.0.211.65    <none>        8082/TCP                     5m28s
+argocd-notifications-controller-metrics   ClusterIP   10.0.36.208    <none>        9001/TCP                     5m27s
+argocd-redis                              ClusterIP   10.0.234.25    <none>        6379/TCP                     5m26s
+argocd-repo-server                        ClusterIP   10.0.144.79    <none>        8081/TCP,8084/TCP            5m25s
+argocd-server                             ClusterIP   10.0.182.54    <none>        80/TCP,443/TCP               5m25s   default cluster ip swith to nodeport
+argocd-server-metrics                     ClusterIP   10.0.209.170   <none>        8083/TCP                     5m24s
+apply this command
+venu [ ~ ]$ kubectl patch svc argocd-server -n argocd -p '{"spec": {"type": "NodePort"}}'
+service/argocd-server patched
+venu [ ~ ]$ kubectl get svc -n argocd
+NAME                                      TYPE        CLUSTER-IP     EXTERNAL-IP   PORT(S)                      AGE
+argocd-applicationset-controller          ClusterIP   10.0.120.123   <none>        7000/TCP,8080/TCP            7m58s
+argocd-dex-server                         ClusterIP   10.0.87.159    <none>        5556/TCP,5557/TCP,5558/TCP   7m57s
+argocd-metrics                            ClusterIP   10.0.211.65    <none>        8082/TCP                     7m57s
+argocd-notifications-controller-metrics   ClusterIP   10.0.36.208    <none>        9001/TCP                     7m56s
+argocd-redis                              ClusterIP   10.0.234.25    <none>        6379/TCP                     7m55s
+argocd-repo-server                        ClusterIP   10.0.144.79    <none>        8081/TCP,8084/TCP            7m54s
+argocd-server                             NodePort    10.0.182.54    <none>        80:32541/TCP,443:30162/TCP   7m54s   now nodeport after switch
+argocd-server-metrics                     ClusterIP   10.0.209.170   <none>        8083/TCP                     7m53s
 
 🧩 Step 5: Get the ArgoCD Admin Password
 bash
