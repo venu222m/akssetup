@@ -129,6 +129,25 @@ spec:
 bash
 Copy
 Edit
+------------------------------login argocd
+Add the Repo from UI
+
+In ArgoCD UI → Settings (gear icon bottom left) → Repositories.
+
+Click Connect Repo using HTTPS.
+
+Fill in:
+
+Repository URL: https://github.com/<your-username>/<your-repo>.git
+
+Username: your GitHub username (only if private repo)
+
+Password / Personal Access Token: (required if private repo — GitHub PAT recommended)
+
+Click Connect.
+
+If your repo is public, you can leave username/password blank.
+---------------------------------------------------------------
 venu [ ~ ]$ nano argocd-app.yaml
 venu [ ~ ]$ kubectl apply -f argocd-app.yaml
 application.argoproj.io/myapp created
