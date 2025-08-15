@@ -133,6 +133,8 @@ venu [ ~ ]$ nano argocd-app.yaml
 venu [ ~ ]$ kubectl apply -f argocd-app.yaml
 application.argoproj.io/myapp created
 
+venu [ ~ ]$ kubectl scale deployment myapp --replicas 3
+deployment.apps/myapp scaled
 
 
 
