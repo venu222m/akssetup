@@ -129,23 +129,9 @@ spec:
 bash
 Copy
 Edit
-kubectl apply -f app.yaml
-👉 Option B: Create via CLI
-bash
-Copy
-Edit
-argocd app create demo-app \
-  --repo https://github.com/<your-username>/<your-repo> \
-  --path k8s-manifests \
-  --dest-server https://kubernetes.default.svc \
-  --dest-namespace default \
-  --sync-policy automated
-🧩 Step 9: Sync the Application
-bash
-Copy
-Edit
-argocd app sync demo-app
-Or use the UI to Sync Now.
+venu [ ~ ]$ nano argocd-app.yaml
+venu [ ~ ]$ kubectl apply -f argocd-app.yaml
+application.argoproj.io/myapp created
 
 
 
