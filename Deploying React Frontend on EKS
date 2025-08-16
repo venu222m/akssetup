@@ -1,0 +1,148 @@
+Deploying React Frontend on EKS
+1. Build & Dockerize the React App
+
+Inside your React project:
+
+Dockerfile
+
+# Stage 1: Build the React app
+FROM node:18-alpine as build
+WORKDIR /app
+COPY package*.json ./
+RUN npm install
+COPY . .
+RUN npm run build
+
+# Stage 2: Serve with nginx
+FROM nginx:alpine
+COPY --from=build /app/build /usr/share/nginx/html
+EXPOSE 80
+CMD ["nginx", "-g", "daemon off;"]
+
+
+✅ This creates a production build of React and serves it with Nginx.
+
+Build & push to AWS ECR:
+
+aws ecr create-repository --repository-name react-frontend
+docker build -t react-frontend .
+docker tag react-frontend:latest <AWS_ACCOUNT_ID>.dkr.ecr.<REGION>.amazonaws.com/react-frontend:latest
+aws ecr get-login-password --region <REGION> | docker login --username AWS --password-stdin <AWS_ACCOUNT_ID>.dkr.ecr.<REGION>.amazonaws.com
+docker push <AWS_ACCOUNT_ID>.dkr.ecr.<REGION>.amazonaws.com/react-frontend:latest
+
+2. Create Kubernetes Deployment
+
+deployment.yaml
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: react-frontend
+  labels:
+    app: react-frontend
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: react-frontend
+  template:
+    metadata:
+      labels:
+        app: react-frontend
+    spec:
+      containers:
+      - name: react-frontend
+        image: <AWS_ACCOUNT_ID>.dkr.ecr.<REGION>.amazonaws.com/react-frontend:latest
+        ports:
+        - containerPort: 80
+
+3. Create Kubernetes Service
+
+service.yaml
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: react-frontend-service
+spec:
+  type: LoadBalancer
+  selector:
+    app: react-frontend
+  ports:
+  - port: 80
+    targetPort: 80
+
+
+✅ type: LoadBalancer will provision an AWS ELB that exposes your React app to the internet.
+
+4. Apply to EKS
+
+Assuming you already have an EKS cluster and kubectl configured:
+
+kubectl apply -f deployment.yaml
+kubectl apply -f service.yaml
+
+
+Check status:
+
+kubectl get pods
+kubectl get svc
+
+
+You’ll see an EXTERNAL-IP for the LoadBalancer service → access that in your browser to see your React app 🎉
+
+5. Add Ingress (Optional, Recommended for Prod)
+
+Instead of direct LoadBalancer, use AWS ALB Ingress Controller for advanced routing:
+
+ingress.yaml
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: react-frontend-ingress
+  annotations:
+    kubernetes.io/ingress.class: alb
+spec:
+  rules:
+  - host: react.myapp.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: react-frontend-service
+            port:
+              number: 80
+
+
+Then update Route53 DNS → point react.myapp.com to ALB.
+
+6. CI/CD Integration (Optional but Real-World)
+
+Use Jenkins / GitHub Actions / ArgoCD:
+
+On every code push → build Docker → push to ECR → kubectl apply.
+
+Example GitHub Actions pipeline:
+
+Jobs:
+
+Build React
+
+Docker build & push
+
+kubectl rollout restart deployment react-frontend
+
+✅ Summary
+
+Docker → Package React build in Nginx.
+
+ECR → Store image.
+
+EKS Deployment + Service → Run React in pods + expose via ELB.
+
+Ingress + Route53 → Custom domain.
+
+CI/CD → Automate builds & deployments.
