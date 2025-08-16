@@ -1,0 +1,277 @@
+Architecture Overview
+React.js (Frontend, Nginx)  --->  Node.js API (Express)  --->  MySQL DB
+        (EKS Service)               (EKS Service)           (StatefulSet/EBS)
+
+
+React → served via Nginx (Dockerized).
+
+Node.js → Express REST API, connects to MySQL.
+
+MySQL → StatefulSet with Persistent Volume (EBS storage).
+
+EKS → Deploy all using kubectl manifests or Helm.
+
+Service type=LoadBalancer → expose frontend to internet.
+
+2. Backend: Node.js + Express + MySQL
+
+app.js (Node backend)
+
+const express = require("express");
+const mysql = require("mysql2");
+const app = express();
+
+const db = mysql.createConnection({
+  host: process.env.DB_HOST || "mysql",
+  user: process.env.DB_USER || "root",
+  password: process.env.DB_PASSWORD || "password",
+  database: process.env.DB_NAME || "mydb"
+});
+
+db.connect(err => {
+  if (err) throw err;
+  console.log("Connected to MySQL!");
+});
+
+app.get("/api/users", (req, res) => {
+  db.query("SELECT * FROM users", (err, result) => {
+    if (err) throw err;
+    res.json(result);
+  });
+});
+
+app.listen(5000, () => console.log("Backend running on port 5000"));
+
+
+Dockerfile (Node backend)
+
+FROM node:18-alpine
+WORKDIR /app
+COPY package*.json ./
+RUN npm install
+COPY . .
+EXPOSE 5000
+CMD ["node", "app.js"]
+
+3. Frontend: React + Nginx
+
+Fetch API from Node service (/api/users).
+
+Example in App.js:
+
+import React, { useEffect, useState } from "react";
+
+function App() {
+  const [users, setUsers] = useState([]);
+
+  useEffect(() => {
+    fetch("/api/users")
+      .then(res => res.json())
+      .then(data => setUsers(data));
+  }, []);
+
+  return (
+    <div>
+      <h1>Users List</h1>
+      <ul>
+        {users.map(u => <li key={u.id}>{u.name}</li>)}
+      </ul>
+    </div>
+  );
+}
+
+export default App;
+
+
+Dockerfile (React frontend)
+
+FROM node:18-alpine as build
+WORKDIR /app
+COPY package*.json ./
+RUN npm install
+COPY . .
+RUN npm run build
+
+FROM nginx:alpine
+COPY --from=build /app/build /usr/share/nginx/html
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+EXPOSE 80
+CMD ["nginx", "-g", "daemon off;"]
+
+4. Kubernetes Manifests
+MySQL StatefulSet
+
+mysql.yaml
+
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mysql-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: mysql
+spec:
+  selector:
+    matchLabels:
+      app: mysql
+  serviceName: "mysql"
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: mysql
+    spec:
+      containers:
+      - name: mysql
+        image: mysql:8
+        env:
+        - name: MYSQL_ROOT_PASSWORD
+          value: password
+        - name: MYSQL_DATABASE
+          value: mydb
+        ports:
+        - containerPort: 3306
+        volumeMounts:
+        - name: mysql-data
+          mountPath: /var/lib/mysql
+  volumeClaimTemplates:
+  - metadata:
+      name: mysql-data
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      resources:
+        requests:
+          storage: 5Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql
+spec:
+  ports:
+  - port: 3306
+  selector:
+    app: mysql
+
+Backend Deployment
+
+backend.yaml
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: node-backend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: node-backend
+  template:
+    metadata:
+      labels:
+        app: node-backend
+    spec:
+      containers:
+      - name: node-backend
+        image: <ECR_REPO>/node-backend:latest
+        ports:
+        - containerPort: 5000
+        env:
+        - name: DB_HOST
+          value: mysql
+        - name: DB_USER
+          value: root
+        - name: DB_PASSWORD
+          value: password
+        - name: DB_NAME
+          value: mydb
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: node-backend-service
+spec:
+  selector:
+    app: node-backend
+  ports:
+  - port: 5000
+    targetPort: 5000
+
+Frontend Deployment
+
+frontend.yaml
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: react-frontend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: react-frontend
+  template:
+    metadata:
+      labels:
+        app: react-frontend
+    spec:
+      containers:
+      - name: react-frontend
+        image: <ECR_REPO>/react-frontend:latest
+        ports:
+        - containerPort: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: react-frontend-service
+spec:
+  type: LoadBalancer
+  selector:
+    app: react-frontend
+  ports:
+  - port: 80
+    targetPort: 80
+
+5. Deploy to EKS
+kubectl apply -f mysql.yaml
+kubectl apply -f backend.yaml
+kubectl apply -f frontend.yaml
+
+
+Get services:
+
+kubectl get svc
+
+
+react-frontend-service → EXTERNAL-IP → use in browser 🎉
+
+6. CI/CD (Optional but Best Practice)
+
+GitHub Actions / Jenkins:
+
+Build Docker images (React + Node).
+
+Push to ECR.
+
+Run kubectl apply on EKS.
+
+ArgoCD: Sync manifests from Git repo for GitOps workflow.
+
+✅ At the end, you’ll have:
+
+React served via Nginx (public LB).
+
+Node backend serving APIs.
+
+MySQL DB with persistent storage.
+
+All inside EKS with scaling + load balancing.
